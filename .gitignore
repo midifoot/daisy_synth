@@ -1,41 +1,53 @@
-# Prerequisites
-*.d
+# === MDS Project Specifics ===
+build/
+*.bin
+*.hex
+*.elf
+*.map
+*.lst
+*.dep
 
-# Compiled Object files
+# === AI & Editor Config ===
+.continue/
+.vscode/
+.history/
+
+# === Prerequisites & Object Files ===
+*.d
 *.slo
 *.lo
 *.o
 *.obj
 
-# Precompiled Headers
+# === Precompiled Headers ===
 *.gch
 *.pch
 
-# Linker files
+# === Linker & Debugger Files ===
 *.ilk
-
-# Debugger Files
 *.pdb
+*.dwo
 
-# Compiled Dynamic libraries
+# === Compiled Dynamic Libraries ===
 *.so
 *.dylib
 *.dll
 
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
+# === Compiled Static Libraries ===
 *.lai
 *.la
 *.a
 *.lib
 
-# Executables
+# === Fortran Module Files ===
+*.mod
+*.smod
+
+# === Executables ===
 *.exe
 *.out
 *.app
 
-# debug information files
-*.dwo
+# === OS Generated Files ===
+.DS_Store
+Thumbs.db

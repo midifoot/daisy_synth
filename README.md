@@ -17,3 +17,12 @@ third step :
 
 fourth :
 - test and run 
+
+
+## config and start project : 
+1. setting up the workflow 
+- installed vscodium
+- created and configured github repo  
+- configured "continue" extension with gemini Flash 3 API + MCP server 
+- created basic file arbo (Makefile , /src , /tests)
+- created basic hardware.h and main.cpp to test the workflow and compilation (OK) 
