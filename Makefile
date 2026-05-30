@@ -11,7 +11,7 @@ USE_FATFS = 1
 # Sources - Project files
 # CPP_SOURCES = tests/oled_display_test.cpp # testing the oled display 
 # CPP_SOURCES = tests/sd_spi_test.cpp
-CPP_SOURCES = tests/7_SDcard_alone_Test.cpp
+CPP_SOURCES = src/main.cpp
 
 # Core location and generic libDaisy Makefile
 SYSTEM_FILES_DIR = $(LIBDAISY_DIR)/core

@@ -2,9 +2,9 @@
 
 # TODO 
 
-- wire the two encoders like the first, test with pushes 
-- adapt the rgb led to find pins and test 
-- test the sd card reading/writing 
+- change this file according to harware changes (display TFT to OLED ... )
+- all hardware individually and all-together tested, switching to phase 2 : skeleton 
+- test audio outputs and midi serial receive (see roadmap)
 
 # Reminders 
 
@@ -12,7 +12,7 @@ to compile :
 - indicate in the makefile the right .cpp to compile (with proper links ...)
 - extract errors with : make 2> errors.txt or make 2>&1 | tee build_log.txt
 - go into dfu mode BOOT+RESET(while keeping boot) 
-- upload with : make program-dfu
+- upload with : make program-dfu (or use the automation bash script )
 
 
 # daisy_synth 
