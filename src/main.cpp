@@ -1,28 +1,33 @@
-#include "daisy_seed.h"
-#include "hardware.h"
+#include "HardwareManager.h"
 
-using namespace daisy;
-
-MDS_Hardware hw;
+// Instantiate our HAL globally
+HardwareManager hw;
 
 int main(void) {
+    // Set up all pins and hardware
     hw.Init();
-    
-    // Start with a Blue LED to show system is alive
-    hw.led_b.Set(1.0f);
-    hw.led_b.Update();
+
+    // Boot screen
+    hw.display.Fill(false);
+    hw.display.SetCursor(20, 25);
+    hw.display.WriteString("MDS SYSTEM BOOT", Font_7x10, true);
+    hw.display.Update();
+
+    hw.seed.DelayMs(1500); // Hold boot screen for 1.5 seconds
 
     while(1) {
+        // Read physical hardware state
         hw.ProcessInputs();
+        hw.seed.DelayMs(1);
 
-        // Simple feedback: Green button turns LED Green
-        if(hw.btn_green.Pressed()) {
-            hw.led_g.Set(1.0f);
-        } else {
-            hw.led_g.Set(0.0f);
+        // ==========================================
+        // TEMPORARY TEST: Ensure HAL is working
+        // ==========================================
+        if(hw.enc1.RisingEdge()) {
+            hw.display.Fill(false);
+            hw.display.SetCursor(10, 30);
+            hw.display.WriteString("ENC 1 CLICKED!", Font_7x10, true);
+            hw.display.Update();
         }
-
-        hw.led_g.Update();
-        System::Delay(10);
     }
 }
