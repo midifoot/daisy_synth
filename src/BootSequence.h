@@ -3,7 +3,6 @@
 #include "StateManager.h"
 #include "SplashLogo.h" 
 
-// The 'inline' keyword allows us to define this function in a header file safely
 inline void PlayCinematicBoot(HardwareManager& hw, StateManager& state) {
     const uint32_t ANIM_TOTAL_TIME = 4000; 
     
@@ -14,16 +13,28 @@ inline void PlayCinematicBoot(HardwareManager& hw, StateManager& state) {
         elapsed = hw.seed.system.GetNow() - startTime;
         hw.display.Fill(false);
 
-        // 1. Draw Logo
+        // --- THE FLIPBOOK ENGINE ---
+        // Change frame every 80ms for a smooth spin
+        int currentFrame = (elapsed / 80) % 3;
+        const uint8_t* activeLogo = daisyLogos[currentFrame];
+
+        // 1. Draw Spinning Logo (68x68 pixels, 9 bytes per row)
         for (int y = 0; y < 68; y++) {
-            for (int x = 0; x < 124; x++) {
-                int byteIndex = (y * 16) + (x / 8);
+            for (int x = 0; x < 68; x++) { 
+                int byteIndex = (y * 9) + (x / 8); 
                 int bitIndex = 7 - (x % 8);
                 
-                bool isPixelSet = (daisyLogo[byteIndex] & (1 << bitIndex)) == 0; 
+                bool isPixelSet = (activeLogo[byteIndex] & (1 << bitIndex)) != 0; 
                 
-                if (isPixelSet && (y - 2 >= 0) && (y - 2 < 64)) {
-                     hw.display.DrawPixel(2 + x, y - 2, true);
+                if (isPixelSet) {
+                    // Center the 68x68 image on the 128x64 screen
+                    int screenX = 30 + x; 
+                    int screenY = y - 2;  
+                    
+                    // Safety check to prevent memory crashes
+                    if (screenX >= 0 && screenX < 128 && screenY >= 0 && screenY < 64) {
+                         hw.display.DrawPixel(screenX, screenY, true); 
+                    }
                 }
             }
         }

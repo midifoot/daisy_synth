@@ -12,6 +12,14 @@ public:
     
     MenuManager menu; 
 
+    // --- TIMERS FOR ACCELERATION & BUTTONS ---
+    uint32_t lastEnc1Time = 0;
+    uint32_t lastEnc2Time = 0;
+    uint32_t lastEnc3Time = 0;
+    
+    uint32_t redBtnPressTime = 0;
+    bool redBtnLongTriggered = false;
+
     // --- PLAY MODE VARIABLES ---
     bool lastGB = false;
     bool lastRB = false;
@@ -26,6 +34,10 @@ public:
     int mainVolume = 100;
     int fxMix = 50;
 
+    // --- DUMMY DSP VARIABLES ---
+    int currentVuLevel = 4; 
+    int currentCpuLoad = 12; 
+
     // --- DUMMY DATA FOR PLAY MODE ---
     const char* synthNames[10] = {"ARCADE B", "DEEP BASS", "SAW LEAD", "FM BELLS", "PULSE PAD", "NOISE HIT", "SOFT KEY", "HARD SYNC", "VOWEL SEQ", "ACID DROP"};
     const char* synthParams[10] = {"WAVE | LDR | REV", "SUB | LPF | CHO", "SAW | HPF | DLY", "FM | BPF | REV", "PWM | LPF | CHO", "NOI | BPF | FLA", "SINE | LPF | REV", "SYNC | LPF | DLY", "VOW | BPF | FLA", "SAW | LPF | DLY"};
@@ -36,30 +48,30 @@ public:
         menu.Init(); 
     }
 
-    // Helper function to handle RGB LED and Menu loading simultaneously
     void SwitchMode(AppMode newMode, HardwareManager& hw) {
         currentMode = newMode;
         needsDisplayUpdate = true;
 
         if (newMode == AppMode::PLAY) {
-            hw.rgb.Set(0, 0, 1); // Blue
+            hw.rgb.Set(0, 0, 1); 
         } else if (newMode == AppMode::PATCH_EDIT) {
-            hw.rgb.Set(0, 1, 0); // Green
+            hw.rgb.Set(0, 1, 0); 
             menu.SetActiveTree(1);
         } else if (newMode == AppMode::PHRASE_EDIT) {
-            hw.rgb.Set(1, 1, 0); // Yellow (R+G)
+            hw.rgb.Set(1, 1, 0); 
             menu.SetActiveTree(2);
         } else if (newMode == AppMode::SYSTEM_EDIT) {
-            hw.rgb.Set(1, 0, 0); // Red
+            hw.rgb.Set(1, 0, 0); 
             menu.SetActiveTree(3);
         }
         
         hw.rgb.Update();
-        hw.seed.DelayMs(300); // Debounce
+        hw.seed.DelayMs(300); 
     }
 
     void ProcessState(HardwareManager& hw) {
-        // Run once right after boot animation to set LED to Blue
+        uint32_t now = hw.seed.system.GetNow();
+
         if (!isBootInitialized) {
             hw.rgb.Set(0, 0, 1); 
             hw.rgb.Update();
@@ -67,60 +79,87 @@ public:
         }
 
         // ==========================================
-        // 1. IF IN A MENU MODE -> Route to MenuManager
+        // 1. MENU MODE LOGIC
         // ==========================================
         if (currentMode != AppMode::PLAY) {
             menu.ProcessInput(hw);
             
-            bool backBtn = !hw.btnRed.Read();
-            
-            // If in the menu, the red button goes up a folder.
-            if (backBtn && !menu.isEditing && menu.currentSelection->parent != nullptr) {
-                menu.currentSelection = menu.currentSelection->parent;
-                menu.topVisibleNode = menu.currentSelection;
-                menu.needsDisplayUpdate = true;
-                hw.seed.DelayMs(200); 
+            bool RBPressed = !hw.btnRed.Read();
+
+            // Just Pressed
+            if (RBPressed && !lastRB) {
+                redBtnPressTime = now;
+                redBtnLongTriggered = false;
             }
-            // If we are at the ROOT of the menu, the red button exits to PLAY mode.
-            else if (backBtn && !menu.isEditing && menu.currentSelection->parent == nullptr) {
-                SwitchMode(AppMode::PLAY, hw);
+            // Held Down
+            else if (RBPressed && lastRB) {
+                // 800ms "Long Press" Emergency Exit
+                if (!redBtnLongTriggered && (now - redBtnPressTime > 800)) {
+                    SwitchMode(AppMode::PLAY, hw);
+                    redBtnLongTriggered = true;
+                }
             }
-            return; // Skip Play Mode inputs
+            // Just Released (Short Press)
+            else if (!RBPressed && lastRB) {
+                if (!redBtnLongTriggered) {
+                    if (menu.currentSelection->parent != nullptr) {
+                        menu.currentSelection = menu.currentSelection->parent;
+                        menu.topVisibleNode = menu.currentSelection;
+                        menu.needsDisplayUpdate = true;
+                    } 
+                    else {
+                        SwitchMode(AppMode::PLAY, hw); // At root, exit to play mode
+                    }
+                }
+            }
+
+            lastRB = RBPressed; 
+            return; 
         }
 
         // ==========================================
-        // 2. PLAY MODE: COMBOS & NAVIGATION
+        // 2. PLAY MODE LOGIC
         // ==========================================
         bool p1 = hw.enc1.Pressed(); 
         bool p2 = hw.enc2.Pressed();
         bool p3 = hw.enc3.Pressed();
 
-        // Check Combos FIRST
         if (p1 && p2 && !p3) { SwitchMode(AppMode::PATCH_EDIT, hw); return; } 
         else if (!p1 && p2 && p3) { SwitchMode(AppMode::PHRASE_EDIT, hw); return; } 
         else if (p1 && !p2 && p3) { SwitchMode(AppMode::SYSTEM_EDIT, hw); return; }
 
-        // --- ENCODER 1: SYNTH ---
+        // --- ENCODER 1 ---
         int inc1 = hw.enc1.Increment();
         if (inc1 != 0) {
-            synthPreview += inc1;
-            if (synthPreview > 9) synthPreview = 0;
-            if (synthPreview < 0) synthPreview = 9;
+            uint32_t currentTime = hw.seed.system.GetNow();
+            uint32_t timeDelta = currentTime - lastEnc1Time;
+            lastEnc1Time = currentTime;
+            if (timeDelta > 2000) timeDelta = 2000; 
+
+            int step = inc1; 
+            synthPreview += step;
+            while (synthPreview > 9) synthPreview -= 10;
+            while (synthPreview < 0) synthPreview += 10;
             needsDisplayUpdate = true;
         }
-        // Only trigger click if NO other encoders are being pressed (safety check)
         if (hw.enc1.RisingEdge() && !p2 && !p3) { 
             synthLoaded = synthPreview; 
             sprintf(sysMsg, "SYNTH LOADED");
             needsDisplayUpdate = true;
         }
 
-        // --- ENCODER 2: PHRASE ---
+        // --- ENCODER 2 ---
         int inc2 = hw.enc2.Increment();
         if (inc2 != 0) {
-            phrasePreview += inc2;
-            if (phrasePreview > 9) phrasePreview = 0;
-            if (phrasePreview < 0) phrasePreview = 9;
+            uint32_t currentTime = hw.seed.system.GetNow();
+            uint32_t timeDelta = currentTime - lastEnc2Time;
+            lastEnc2Time = currentTime;
+            if (timeDelta > 2000) timeDelta = 2000; 
+
+            int step = inc2; 
+            phrasePreview += step;
+            while (phrasePreview > 9) phrasePreview -= 10;
+            while (phrasePreview < 0) phrasePreview += 10;
             needsDisplayUpdate = true;
         }
         if (hw.enc2.RisingEdge() && !p1 && !p3) { 
@@ -132,12 +171,20 @@ public:
         // --- ENCODER 3: VOL/MIX ---
         int inc3 = hw.enc3.Increment();
         if (inc3 != 0) {
+            uint32_t currentTime = hw.seed.system.GetNow();
+            uint32_t timeDelta = currentTime - lastEnc3Time;
+            lastEnc3Time = currentTime;
+            if (timeDelta > 2000) timeDelta = 2000; 
+
+            int step = inc3; 
+            if (timeDelta < 150) step = inc3 * 10; 
+
             if (isVolSelected) {
-                mainVolume += inc3;
+                mainVolume += step;
                 if (mainVolume > 100) mainVolume = 100;
                 if (mainVolume < 0) mainVolume = 0;
             } else {
-                fxMix += inc3;
+                fxMix += step;
                 if (fxMix > 100) fxMix = 100;
                 if (fxMix < 0) fxMix = 0;
             }
@@ -148,7 +195,6 @@ public:
             needsDisplayUpdate = true;
         }
 
-        // Buttons (MIDI Simulation)
         bool GBPressed = !hw.btnGreen.Read();
         bool RBPressed = !hw.btnRed.Read();
         if (GBPressed != lastGB || RBPressed != lastRB) {
@@ -167,62 +213,68 @@ public:
         if (needsDisplayUpdate) {
             hw.display.Fill(false); 
 
-            // MIDI Indicator
+            // ZONE 1: THE STATUS BAR 
             if (lastGB || lastRB) {
-                hw.display.DrawCircle(4, 4, 3, true); 
-                hw.display.DrawCircle(4, 4, 2, true);
+                hw.display.DrawCircle(2, 4, 2, true); 
+                hw.display.DrawCircle(2, 4, 1, true);
             }
 
             char valStr[40]; 
             
-            // Volume Box
-            hw.display.DrawRect(11, 0, 46, 9, true, isVolSelected); 
-            hw.display.SetCursor(13, 1);
+            hw.display.DrawRect(7, 0, 36, 9, true, isVolSelected); 
+            hw.display.SetCursor(9, 0); 
             sprintf(valStr, "V:%03d", mainVolume);
             hw.display.WriteString(valStr, Font_5x8, !isVolSelected); 
 
-            // FX Box
-            hw.display.DrawRect(49, 0, 84, 9, true, !isVolSelected); 
-            hw.display.SetCursor(51, 1);
+            hw.display.DrawRect(38, 0, 67, 9, true, !isVolSelected); 
+            hw.display.SetCursor(40, 0); 
             sprintf(valStr, "F:%03d", fxMix);
             hw.display.WriteString(valStr, Font_5x8, isVolSelected); 
 
-            // Mode Label
-            hw.display.SetCursor(107, 0);
-            hw.display.WriteString("PLAY", Font_5x8, true);
+            // Static VU Meter 
+            for(int i = 0; i < 7; i++) {
+                int x_vu = 73 + (i * 3);
+                int h_vu = i + 2; 
+                if (i < currentVuLevel) hw.display.DrawLine(x_vu, 8, x_vu, 8 - h_vu, true); 
+                else hw.display.DrawPixel(x_vu, 8, true); 
+            }
+
+            // Static CPU Load 
+            hw.display.SetCursor(105, 1);
+            sprintf(valStr, "%02d%%", currentCpuLoad);
+            hw.display.WriteString(valStr, Font_5x8, true);
             
-            hw.display.SetCursor(0, 9);
+            // LOWER ZONES
+            hw.display.SetCursor(0, 10);
             hw.display.WriteString(sysMsg, Font_5x8, true);
-            hw.display.DrawLine(0, 17, 127, 17, true);
+            hw.display.DrawLine(0, 19, 127, 19, true); 
 
             // ZONE 2: SYNTH
             bool synthIsFloating = (synthPreview != synthLoaded);
-            if (synthIsFloating) hw.display.DrawRect(0, 18, 127, 28, true, true);
-            
-            hw.display.SetCursor(2, 19);
+            if (synthIsFloating) hw.display.DrawRect(0, 21, 127, 30, true, true);
+            hw.display.SetCursor(2, 21);
             sprintf(valStr, "%03d %s", synthPreview, synthNames[synthPreview]);
             hw.display.WriteString(valStr, Font_7x10, !synthIsFloating); 
-
-            hw.display.SetCursor(2, 29);
+            
+            hw.display.SetCursor(2, 31);
             hw.display.WriteString(synthParams[synthPreview], Font_4x6, true);
-            hw.display.DrawLine(0, 35, 127, 35, true);
+            hw.display.DrawLine(0, 37, 127, 37, true); 
 
             // ZONE 3: PHRASE
             bool phraseIsFloating = (phrasePreview != phraseLoaded);
-            if (phraseIsFloating) hw.display.DrawRect(0, 36, 127, 44, true, true);
-            
-            hw.display.SetCursor(2, 37);
+            if (phraseIsFloating) hw.display.DrawRect(0, 39, 127, 46, true, true);
+            hw.display.SetCursor(2, 39);
             sprintf(valStr, "%03d %s", phrasePreview, phraseNames[phrasePreview]);
             hw.display.WriteString(valStr, Font_5x8, !phraseIsFloating);
-
-            hw.display.SetCursor(2, 45);
+            
+            hw.display.SetCursor(2, 48);
             hw.display.WriteString(phraseParams[phrasePreview], Font_4x6, true);
-            hw.display.DrawLine(0, 52, 127, 52, true);
+            hw.display.DrawLine(0, 54, 127, 54, true);
 
             // ZONE 4: HELP
-            hw.display.SetCursor(0, 53); 
+            hw.display.SetCursor(0, 55); 
             hw.display.WriteString("R1:SYNTH R2:PHRASE R3:VOL/MIX", Font_4x6, true);
-            hw.display.SetCursor(0, 59); 
+            hw.display.SetCursor(0, 61); 
             hw.display.WriteString("1+2:SYN EDT 2+3:PHR 1+3:SYS", Font_4x6, true);
 
             hw.display.Update();

@@ -1,11 +1,3 @@
-/*
-defining a double list dynamic menu 
-check 
-MAX_VISIBLE_ITEMS
-and
-ITEM_HEIGHT
-to change the menu appearance
-*/
 #pragma once
 #include "HardwareManager.h"
 #include <stdio.h>
@@ -29,13 +21,14 @@ public:
     MenuNode* currentSelection;
     MenuNode* topVisibleNode; 
     
-    // The three roots of our different menus
     MenuNode* rootSynth;
     MenuNode* rootPhrase;
     MenuNode* rootSystem;
 
-    bool isEditing = false;
     bool needsDisplayUpdate = true;
+
+    // --- ACCELERATION TIMER FOR ENC 3 ---
+    uint32_t lastMenuEnc3Time = 0; 
 
     const int MAX_VISIBLE_ITEMS = 4; 
     const int ITEM_HEIGHT = 12;      
@@ -81,19 +74,16 @@ public:
         n_sysClock  = {"Clock Src",    NodeType::PARAM_INT, 0, 0, 1, nullptr, nullptr, nullptr, &n_sysBright}; 
         rootSystem = &n_sysMidiCh;
 
-        // Default to Synth
         currentSelection = rootSynth;
         topVisibleNode = currentSelection;
     }
 
-    // NEW: Function to hot-swap the active menu based on combo keys
     void SetActiveTree(int treeID) {
         if (treeID == 1) currentSelection = rootSynth;
         else if (treeID == 2) currentSelection = rootPhrase;
         else if (treeID == 3) currentSelection = rootSystem;
         
         topVisibleNode = currentSelection;
-        isEditing = false;
         needsDisplayUpdate = true;
     }
 
@@ -122,34 +112,49 @@ public:
     }
 
     void ProcessInput(HardwareManager& hw) {
-        int inc = hw.enc1.Increment();
-        bool clicked = hw.enc1.RisingEdge();
+        uint32_t now = hw.seed.system.GetNow();
 
-        if (inc != 0) {
-            if (isEditing && currentSelection->type == NodeType::PARAM_INT) {
-                currentSelection->value += inc;
-                if (currentSelection->value > currentSelection->maxVal) currentSelection->value = currentSelection->maxVal;
-                if (currentSelection->value < currentSelection->minVal) currentSelection->value = currentSelection->minVal;
-            } else {
-                if (inc > 0 && currentSelection->next != nullptr) {
-                    currentSelection = currentSelection->next;
-                } else if (inc < 0 && currentSelection->prev != nullptr) {
-                    currentSelection = currentSelection->prev;
-                }
-                UpdateCamera(); 
+        // ==========================================
+        // ENCODER 1: STRICTLY NAVIGATION (Target)
+        // ==========================================
+        int inc1 = hw.enc1.Increment();
+        bool clicked1 = hw.enc1.RisingEdge();
+
+        if (inc1 != 0) {
+            if (inc1 > 0 && currentSelection->next != nullptr) {
+                currentSelection = currentSelection->next;
+            } else if (inc1 < 0 && currentSelection->prev != nullptr) {
+                currentSelection = currentSelection->prev;
             }
+            UpdateCamera(); 
             needsDisplayUpdate = true;
         }
 
-        if (clicked) {
-            if (currentSelection->type == NodeType::FOLDER) {
-                if (currentSelection->child != nullptr) {
-                    currentSelection = currentSelection->child;
-                    topVisibleNode = currentSelection; 
-                }
-            } else if (currentSelection->type == NodeType::PARAM_INT) {
-                isEditing = !isEditing;
+        if (clicked1) {
+            // Push only works on folders now!
+            if (currentSelection->type == NodeType::FOLDER && currentSelection->child != nullptr) {
+                currentSelection = currentSelection->child;
+                topVisibleNode = currentSelection; 
+                needsDisplayUpdate = true;
             }
+        }
+
+        // ==========================================
+        // ENCODER 3: STRICTLY VALUE EDITING (Fire)
+        // ==========================================
+        int inc3 = hw.enc3.Increment();
+        if (inc3 != 0 && currentSelection->type == NodeType::PARAM_INT) {
+            uint32_t timeDelta = now - lastMenuEnc3Time;
+            lastMenuEnc3Time = now;
+            if (timeDelta > 2000) timeDelta = 2000; 
+
+            int step = inc3;
+            if (timeDelta < 150) step = inc3 * 10; // FAST TURN JUMPS BY 10
+
+            currentSelection->value += step;
+            if (currentSelection->value > currentSelection->maxVal) currentSelection->value = currentSelection->maxVal;
+            if (currentSelection->value < currentSelection->minVal) currentSelection->value = currentSelection->minVal;
+            
             needsDisplayUpdate = true;
         }
     }
@@ -159,8 +164,16 @@ public:
         hw.display.Fill(false);
         
         hw.display.SetCursor(0, 0);
-        if (currentSelection->parent == nullptr) hw.display.WriteString("- PARAMETERS -", Font_7x10, true);
-        else hw.display.WriteString(currentSelection->parent->name, Font_7x10, true);
+        
+        if (currentSelection->parent == nullptr) {
+            if (currentSelection == rootSynth) hw.display.WriteString("SYNTH EDIT", Font_7x10, true);
+            else if (currentSelection == rootPhrase) hw.display.WriteString("PHRASE EDIT", Font_7x10, true);
+            else if (currentSelection == rootSystem) hw.display.WriteString("SYSTEM EDIT", Font_7x10, true);
+            else hw.display.WriteString("- PARAMETERS -", Font_7x10, true); 
+        } else {
+            hw.display.WriteString(currentSelection->parent->name, Font_7x10, true);
+        }
+        
         hw.display.DrawLine(0, 11, 127, 11, true);
 
         int yPos = 14;
@@ -181,7 +194,8 @@ public:
                 sprintf(valStr, ": %d", drawNode->value);
                 hw.display.WriteString(valStr, Font_7x10, true);
                 
-                if (isEditing && drawNode == currentSelection) {
+                // Always draw the box if it is the current selection, to show E3 is "live"
+                if (drawNode == currentSelection) {
                     hw.display.DrawRect(0, yPos-1, 127, yPos + ITEM_HEIGHT - 2, true, false); 
                 }
             } else if (drawNode->type == NodeType::FOLDER) {
