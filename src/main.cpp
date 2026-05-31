@@ -6,13 +6,9 @@ HardwareManager hw;
 StateManager state;
 
 int main(void) {
-    // 1. Initialize Hardware
     hw.Init();
-
-    // 2. Play Boot Animation
     PlayCinematicBoot(hw, state);
 
-    // 3. Enter Main App Loop
     while(1) {
         hw.ProcessInputs();
         state.ProcessState(hw);
