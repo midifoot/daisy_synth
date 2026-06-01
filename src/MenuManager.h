@@ -45,7 +45,6 @@ public:
     MenuNode n_sysMidiCh, n_sysBright, n_sysClock;
 
     void Init() {
-        // 1. BUILD SYNTH TREE
         n_osc    = {"Oscillators", NodeType::FOLDER, 0, 0, 0, nullptr, &n_oscWave, &n_filter, nullptr};
         n_filter = {"Filters",     NodeType::FOLDER, 0, 0, 0, nullptr, &n_fltCutoff, &n_lfo, &n_osc};
         n_lfo    = {"LFOs",        NodeType::FOLDER, 0, 0, 0, nullptr, nullptr, &n_fx, &n_filter};
@@ -61,14 +60,12 @@ public:
         n_fltRes    = {"Resonance", NodeType::PARAM_INT, 10, 0, 100, &n_filter, nullptr, nullptr, &n_fltCutoff};
         rootSynth = &n_osc;
 
-        // 2. BUILD PHRASE TREE
         n_phrLength = {"Seq Length", NodeType::PARAM_INT, 16, 1, 64, nullptr, nullptr, &n_phrSwing, nullptr};
         n_phrSwing  = {"Swing %",    NodeType::PARAM_INT, 50, 0, 100, nullptr, nullptr, &n_phrProb, &n_phrLength};
         n_phrProb   = {"Probability",NodeType::PARAM_INT, 100, 0, 100, nullptr, nullptr, &n_phrOctave, &n_phrSwing};
         n_phrOctave = {"Octave Rng", NodeType::PARAM_INT, 2,  1, 4, nullptr, nullptr, nullptr, &n_phrProb};
         rootPhrase = &n_phrLength;
 
-        // 3. BUILD SYSTEM TREE
         n_sysMidiCh = {"MIDI Channel", NodeType::PARAM_INT, 1, 1, 16, nullptr, nullptr, &n_sysBright, nullptr};
         n_sysBright = {"Brightness",   NodeType::PARAM_INT, 100, 10, 100, nullptr, nullptr, &n_sysClock, &n_sysMidiCh};
         n_sysClock  = {"Clock Src",    NodeType::PARAM_INT, 0, 0, 1, nullptr, nullptr, nullptr, &n_sysBright}; 
@@ -114,9 +111,6 @@ public:
     void ProcessInput(HardwareManager& hw) {
         uint32_t now = hw.seed.system.GetNow();
 
-        // ==========================================
-        // ENCODER 1: STRICTLY NAVIGATION (Target)
-        // ==========================================
         int inc1 = hw.enc1.Increment();
         bool clicked1 = hw.enc1.RisingEdge();
 
@@ -131,7 +125,6 @@ public:
         }
 
         if (clicked1) {
-            // Push only works on folders now!
             if (currentSelection->type == NodeType::FOLDER && currentSelection->child != nullptr) {
                 currentSelection = currentSelection->child;
                 topVisibleNode = currentSelection; 
@@ -139,9 +132,6 @@ public:
             }
         }
 
-        // ==========================================
-        // ENCODER 3: STRICTLY VALUE EDITING (Fire)
-        // ==========================================
         int inc3 = hw.enc3.Increment();
         if (inc3 != 0 && currentSelection->type == NodeType::PARAM_INT) {
             uint32_t timeDelta = now - lastMenuEnc3Time;
@@ -149,7 +139,7 @@ public:
             if (timeDelta > 2000) timeDelta = 2000; 
 
             int step = inc3;
-            if (timeDelta < 150) step = inc3 * 10; // FAST TURN JUMPS BY 10
+            if (timeDelta < 150) step = inc3 * 10; 
 
             currentSelection->value += step;
             if (currentSelection->value > currentSelection->maxVal) currentSelection->value = currentSelection->maxVal;
@@ -157,68 +147,5 @@ public:
             
             needsDisplayUpdate = true;
         }
-    }
-
-    void DrawUI(HardwareManager& hw) {
-        if (!needsDisplayUpdate) return;
-        hw.display.Fill(false);
-        
-        hw.display.SetCursor(0, 0);
-        
-        if (currentSelection->parent == nullptr) {
-            if (currentSelection == rootSynth) hw.display.WriteString("SYNTH EDIT", Font_7x10, true);
-            else if (currentSelection == rootPhrase) hw.display.WriteString("PHRASE EDIT", Font_7x10, true);
-            else if (currentSelection == rootSystem) hw.display.WriteString("SYSTEM EDIT", Font_7x10, true);
-            else hw.display.WriteString("- PARAMETERS -", Font_7x10, true); 
-        } else {
-            hw.display.WriteString(currentSelection->parent->name, Font_7x10, true);
-        }
-        
-        hw.display.DrawLine(0, 11, 127, 11, true);
-
-        int yPos = 14;
-        MenuNode* drawNode = topVisibleNode;
-        int itemsDrawn = 0;
-
-        while (drawNode != nullptr && itemsDrawn < MAX_VISIBLE_ITEMS) {
-            if (drawNode == currentSelection) {
-                hw.display.SetCursor(0, yPos);
-                hw.display.WriteString(">", Font_7x10, true);
-            }
-
-            hw.display.SetCursor(10, yPos);
-            hw.display.WriteString(drawNode->name, Font_7x10, true);
-
-            if (drawNode->type == NodeType::PARAM_INT) {
-                char valStr[16];
-                sprintf(valStr, ": %d", drawNode->value);
-                hw.display.WriteString(valStr, Font_7x10, true);
-                
-                // Always draw the box if it is the current selection, to show E3 is "live"
-                if (drawNode == currentSelection) {
-                    hw.display.DrawRect(0, yPos-1, 127, yPos + ITEM_HEIGHT - 2, true, false); 
-                }
-            } else if (drawNode->type == NodeType::FOLDER) {
-                hw.display.WriteString(" [...]", Font_7x10, true);
-            }
-
-            drawNode = drawNode->next;
-            yPos += ITEM_HEIGHT;
-            itemsDrawn++;
-        }
-
-        if (drawNode != nullptr) {
-            hw.display.DrawPixel(126, 60, true);
-            hw.display.DrawPixel(125, 59, true);
-            hw.display.DrawPixel(127, 59, true); 
-        }
-        if (topVisibleNode->prev != nullptr) {
-            hw.display.DrawPixel(126, 14, true);
-            hw.display.DrawPixel(125, 15, true);
-            hw.display.DrawPixel(127, 15, true); 
-        }
-
-        hw.display.Update();
-        needsDisplayUpdate = false;
     }
 };
