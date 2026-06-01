@@ -12,6 +12,9 @@ public:
     
     MenuManager menu; 
 
+    // --- LOCAL SHUTTER ENGINE ---
+    bool isPanic = false; 
+
     uint32_t lastEnc1Time = 0;
     uint32_t lastEnc2Time = 0;
     uint32_t lastEnc3Time = 0;
@@ -29,7 +32,7 @@ public:
     int phraseLoaded = 0;
     
     bool isVolSelected = true; 
-    int mainVolume = 50 ;
+    int mainVolume = 50; // Starts safely at 50%
     int fxMix = 50;
 
     int currentVuLevel = 4; 
@@ -74,6 +77,9 @@ public:
             isBootInitialized = true;
         }
 
+        // ==========================================
+        // 1. MENU MODE LOGIC
+        // ==========================================
         if (currentMode != AppMode::PLAY) {
             menu.ProcessInput(hw);
             
@@ -106,6 +112,9 @@ public:
             return; 
         }
 
+        // ==========================================
+        // 2. PLAY MODE LOGIC
+        // ==========================================
         bool p1 = hw.enc1.Pressed(); 
         bool p2 = hw.enc2.Pressed();
         bool p3 = hw.enc3.Pressed();
@@ -114,6 +123,15 @@ public:
         else if (!p1 && p2 && p3) { SwitchMode(AppMode::PHRASE_EDIT, hw); return; } 
         else if (p1 && !p2 && p3) { SwitchMode(AppMode::SYSTEM_EDIT, hw); return; }
 
+        // --- RED BUTTON: AUDIO SHUTTER (PANIC) ---
+        bool RBPressed = !hw.btnRed.Read();
+        if (RBPressed && !lastRB) {
+            isPanic = true;
+            sprintf(sysMsg, "PANIC ACTIVE: MUTED");
+            needsDisplayUpdate = true;
+        }
+
+        // --- ENCODER 1 ---
         int inc1 = hw.enc1.Increment();
         if (inc1 != 0) {
             uint32_t currentTime = hw.seed.system.GetNow();
@@ -133,6 +151,7 @@ public:
             needsDisplayUpdate = true;
         }
 
+        // --- ENCODER 2 ---
         int inc2 = hw.enc2.Increment();
         if (inc2 != 0) {
             uint32_t currentTime = hw.seed.system.GetNow();
@@ -152,7 +171,16 @@ public:
             needsDisplayUpdate = true;
         }
 
+        // --- ENCODER 3: VOL/MIX ---
         int inc3 = hw.enc3.Increment();
+        
+        // INTERACTION UNMUTES PANIC
+        if (isPanic && (inc3 != 0 || hw.enc3.RisingEdge())) {
+            isPanic = false;
+            sprintf(sysMsg, "STATUS: SYSTEM READY");
+            needsDisplayUpdate = true;
+        }
+
         if (inc3 != 0) {
             uint32_t currentTime = hw.seed.system.GetNow();
             uint32_t timeDelta = currentTime - lastEnc3Time;
@@ -179,7 +207,6 @@ public:
         }
 
         bool GBPressed = !hw.btnGreen.Read();
-        bool RBPressed = !hw.btnRed.Read();
         if (GBPressed != lastGB || RBPressed != lastRB) {
             needsDisplayUpdate = true;
             lastGB = GBPressed;

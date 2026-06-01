@@ -5,7 +5,6 @@
 
 using namespace daisy;
 
-// Typedef for our specific OLED screen
 using MyOledDriver = SSD130xI2c128x64Driver;
 
 class HardwareManager {
@@ -13,13 +12,15 @@ public:
     HardwareManager() {}
     ~HardwareManager() {}
 
-    // Public hardware objects
     DaisySeed seed;
     OledDisplay<MyOledDriver> display;
     
-    Encoder enc1; // Synth
-    Encoder enc2; // Phrase
-    Encoder enc3; // Vol/Mix
+    // The hardware MIDI serial listener engine
+    MidiUartHandler midi;
+
+    Encoder enc1; 
+    Encoder enc2; 
+    Encoder enc3; 
     
     GPIO btnGreen;
     GPIO btnRed;
@@ -27,10 +28,9 @@ public:
     RgbLed rgb;
 
     void Init() {
-        // 1. Init System
         seed.Init();
 
-        // 2. Init OLED (I2C on D11/D12)
+        // 1. Init OLED
         OledDisplay<MyOledDriver>::Config display_cfg;
         display_cfg.driver_config.transport_config.i2c_address = 0x3C;
         auto &i2c_cfg = display_cfg.driver_config.transport_config.i2c_config;
@@ -40,21 +40,26 @@ public:
         i2c_cfg.pin_config.sda = seed::D12; 
         display.Init(display_cfg);
 
-        // 3. Init Buttons (Physical Pins 8, 9)
+        // 2. LOGICAL FIX: Explicitly assign the physical pins to the transport structure
+        MidiUartHandler::Config midi_cfg;
+        midi_cfg.transport_config.rx = seed::D14; // Pin 14 maps to your voltage divider!
+        midi_cfg.transport_config.tx = seed::D13; // Pin 13 maps to serial out (unused for now)
+        midi.Init(midi_cfg);
+
+        // 3. Init Buttons
         btnGreen.Init(seed::D7, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
         btnRed.Init(seed::D8, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);
 
-        // 4. Init Encoders (Phase A, Phase B, Click)
-        enc1.Init(seed::D20, seed::D19, seed::D21); // Physical 26, 27, 28
-        enc2.Init(seed::D23, seed::D22, seed::D24); // Physical 29, 30, 31
-        enc3.Init(seed::D26, seed::D25, seed::D27); // Physical 32, 33, 34
+        // 4. Init Encoders
+        enc1.Init(seed::D20, seed::D19, seed::D21); 
+        enc2.Init(seed::D23, seed::D22, seed::D24); 
+        enc3.Init(seed::D26, seed::D25, seed::D27); 
 
-        // 5. Init RGB LED (Physical Pins 22, 23, 24)
+        // 5. Init RGB LED
         rgb.Init(seed::D16, seed::D17, seed::D18, false);
     }
 
     void ProcessInputs() {
-        // Debounce encoders every frame
         enc1.Debounce();
         enc2.Debounce();
         enc3.Debounce();
