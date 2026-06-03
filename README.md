@@ -2,9 +2,9 @@
 
 # TODO 
 
-- change this file according to harware changes (display TFT to OLED ... )
+- change this file according to hardware changes (display TFT to OLED ... )
 - all hardware individually and all-together tested, switching to phase 2 : skeleton 
-- test audio outputs and midi serial receive (see roadmap)
+- make the models list and detail the MasterMixerModel as a meta model, combining 2 to 4 other models based on the weight of each one ... make a score (+5,+3,+2 for each model to know what resource consuming to expect)
 
 # Reminders 
 
