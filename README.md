@@ -2,9 +2,20 @@
 
 # TODO 
 
+everyday roadmap : 
+- after sd card test, write an optional diagnostics routine to check every component 
+(triggered by P1,P2,P3)
+- led : alternate colors and blink 
+- encoders rotation and press
+- buttons press 
+- OLED test
+- sd card read/write 
+- end up with booting to play mode 
+
 - change this file according to hardware changes (display TFT to OLED ... )
 - all hardware individually and all-together tested, switching to phase 2 : skeleton 
 - make the models list and detail the MasterMixerModel as a meta model, combining 2 to 4 other models based on the weight of each one ... make a score (+5,+3,+2 for each model to know what resource consuming to expect)
+
 
 # Reminders 
 

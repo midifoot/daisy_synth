@@ -108,10 +108,10 @@ private:
             else hw.display.DrawPixel(x_vu, 8, true); 
         }
 
-        // Static CPU Load 
-        hw.display.SetCursor(105, 1);
-        sprintf(valStr, "%02d%%", state.currentCpuLoad);
-        hw.display.WriteString(valStr, Font_5x8, true);
+        // CPU LOAD + SD space left
+        hw.display.SetCursor(99, 2);
+        sprintf(valStr, "%02d%% %02d%%", state.currentCpuLoad, state.sdSpaceUsed);
+        hw.display.WriteString(valStr, Font_4x6, true);
         
         // LOWER ZONES
         hw.display.SetCursor(0, 10);
