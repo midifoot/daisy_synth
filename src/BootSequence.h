@@ -2,16 +2,24 @@
 #include "HardwareManager.h"
 #include "StateManager.h"
 #include "SplashLogo.h" 
+#include "SynthEngine.h"
 
-inline void PlayCinematicBoot(HardwareManager& hw, StateManager& state) {
+
+inline void PlayCinematicBoot(HardwareManager& hw, StateManager& state, SynthEngine& synth) {    
     const uint32_t ANIM_TOTAL_TIME = 4000; 
     
     uint32_t startTime = hw.seed.system.GetNow();
     uint32_t elapsed = 0;
 
+    synth.isSoundcheck = true; // Turn on the oscillator!
+
     while (elapsed < ANIM_TOTAL_TIME) {
         elapsed = hw.seed.system.GetNow() - startTime;
         hw.display.Fill(false);
+
+        // run the freq from 110 to 880 
+        float progress = (float)elapsed / ANIM_TOTAL_TIME; 
+        synth.currentFreq = 110.0f + (progress * (880.0f - 110.0f));
 
         // --- THE FLIPBOOK ENGINE ---
         // Change frame every 80ms for a smooth spin
@@ -54,7 +62,7 @@ inline void PlayCinematicBoot(HardwareManager& hw, StateManager& state) {
         if (elapsed > 2000) {
             int slideProgress = (elapsed - 2000) / 9; 
             int text2_x = 127 - slideProgress; 
-            if (text2_x < 18) text2_x = 18; 
+            if (text2_x < 24) text2_x = 24; 
 
             hw.display.DrawRect(text2_x, 40, text2_x + 85, 50, false, true);
             hw.display.SetCursor(text2_x + 2, 41);
@@ -71,5 +79,6 @@ inline void PlayCinematicBoot(HardwareManager& hw, StateManager& state) {
     hw.seed.DelayMs(200); 
 
     // Trigger the Play Mode UI
+    synth.isSoundcheck = false; // Turn the oscillator off!
     state.needsDisplayUpdate = true;
 }
