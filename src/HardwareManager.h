@@ -40,11 +40,12 @@ public:
         i2c_cfg.pin_config.sda = seed::D12; 
         display.Init(display_cfg);
 
-        // 2. LOGICAL FIX: Explicitly assign the physical pins to the transport structure
+        // 2. Init MIDI
         MidiUartHandler::Config midi_cfg;
         midi_cfg.transport_config.rx = seed::D14; // Pin 14 maps to your voltage divider!
         midi_cfg.transport_config.tx = seed::D13; // Pin 13 maps to serial out (unused for now)
         midi.Init(midi_cfg);
+        midi.StartReceive(); // <-- NEW: Start buffering incoming bytes in the background
 
         // 3. Init Buttons
         btnGreen.Init(seed::D7, GPIO::Mode::INPUT, GPIO::Pull::PULLUP);

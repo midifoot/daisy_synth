@@ -82,10 +82,10 @@ private:
     }
 
     void DrawPlayMode(HardwareManager& hw, StateManager& state) {
-        // ZONE 1: THE STATUS BAR 
-        if (state.lastGB || state.lastRB) {
-            hw.display.DrawCircle(2, 4, 2, true); 
-            hw.display.DrawCircle(2, 4, 1, true);
+        // ZONE 1: THE STATUS BAR (MIDI Activity Blinker)
+        if (state.midiActive) {
+            hw.display.DrawCircle(2, 4, 2, true); // Outer circle
+            hw.display.DrawCircle(2, 4, 1, true); // Inner fill
         }
 
         char valStr[40]; 
