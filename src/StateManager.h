@@ -12,7 +12,6 @@ public:
     
     MenuManager menu; 
 
-    // --- LOCAL SHUTTER ENGINE ---
     bool isPanic = false; 
 
     uint32_t lastEnc1Time = 0;
@@ -32,13 +31,13 @@ public:
     int phraseLoaded = 0;
     
     bool isVolSelected = true; 
-    int mainVolume = 50; // Starts safely at 50%
+    int mainVolume = 50; 
     int fxMix = 50;
 
     int currentVuLevel = 4; 
     int currentCpuLoad = 12; 
     int sdSpaceUsed = 0; 
-    bool midiActive = false; // <-- Tracks if any notes are currently playing
+    bool midiActive = false; 
 
     const char* synthNames[10] = {"ARCADE B", "DEEP BASS", "SAW LEAD", "FM BELLS", "PULSE PAD", "NOISE HIT", "SOFT KEY", "HARD SYNC", "VOWEL SEQ", "ACID DROP"};
     const char* synthParams[10] = {"WAVE | LDR | REV", "SUB | LPF | CHO", "SAW | HPF | DLY", "FM | BPF | REV", "PWM | LPF | CHO", "NOI | BPF | FLA", "SINE | LPF | REV", "SYNC | LPF | DLY", "VOW | BPF | FLA", "SAW | LPF | DLY"};
@@ -49,33 +48,38 @@ public:
         menu.Init(); 
     }
 
+    // --- REVERTED: Simple, lightweight color assignment ---
+    void UpdateLED(HardwareManager& hw) {
+        if (!isBootInitialized || currentMode == AppMode::PLAY) {
+            hw.rgb.Set(0, 0, 1.0f); // Blue
+        } else if (currentMode == AppMode::PATCH_EDIT) {
+            hw.rgb.Set(0, 1.0f, 0); // Green
+        } else if (currentMode == AppMode::PHRASE_EDIT) {
+            hw.rgb.Set(1.0f, 1.0f, 0); // Yellow
+        } else if (currentMode == AppMode::SYSTEM_EDIT) {
+            hw.rgb.Set(1.0f, 0, 0); // Red
+        }
+        hw.rgb.Update();
+    }
+
     void SwitchMode(AppMode newMode, HardwareManager& hw) {
         currentMode = newMode;
-        needsDisplayUpdate = true;
-
-        if (newMode == AppMode::PLAY) {
-            hw.rgb.Set(0, 0, 1); 
-        } else if (newMode == AppMode::PATCH_EDIT) {
-            hw.rgb.Set(0, 1, 0); 
-            menu.SetActiveTree(1);
-        } else if (newMode == AppMode::PHRASE_EDIT) {
-            hw.rgb.Set(1, 1, 0); 
-            menu.SetActiveTree(2);
-        } else if (newMode == AppMode::SYSTEM_EDIT) {
-            hw.rgb.Set(1, 0, 0); 
-            menu.SetActiveTree(3);
-        }
         
-        hw.rgb.Update();
+        if (newMode == AppMode::PATCH_EDIT) menu.SetActiveTree(1);
+        else if (newMode == AppMode::PHRASE_EDIT) menu.SetActiveTree(2);
+        else if (newMode == AppMode::SYSTEM_EDIT) menu.SetActiveTree(3);
+        
+        needsDisplayUpdate = true;
+        UpdateLED(hw); 
         hw.seed.DelayMs(300); 
     }
 
     void ProcessState(HardwareManager& hw) {
         uint32_t now = hw.seed.system.GetNow();
 
+        // One-time LED setup on boot completion
         if (!isBootInitialized) {
-            hw.rgb.Set(0, 0, 1); 
-            hw.rgb.Update();
+            UpdateLED(hw);
             isBootInitialized = true;
         }
 
@@ -176,7 +180,6 @@ public:
         // --- ENCODER 3: VOL/MIX ---
         int inc3 = hw.enc3.Increment();
         
-        // INTERACTION UNMUTES PANIC
         if (isPanic && (inc3 != 0 || hw.enc3.RisingEdge())) {
             isPanic = false;
             sprintf(sysMsg, "STATUS: SYSTEM READY");

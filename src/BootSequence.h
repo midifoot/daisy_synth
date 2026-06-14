@@ -2,6 +2,7 @@
 #include "HardwareManager.h"
 #include "SplashLogo.h" 
 
+
 // Notice we pass the volatile float by reference (&) to guarantee the audio thread sees it!
 inline void PlayCinematicBoot(HardwareManager& hw, volatile float& bootFreq) {    
     const uint32_t ANIM_TOTAL_TIME = 4000; 

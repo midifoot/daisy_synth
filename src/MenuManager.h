@@ -42,7 +42,7 @@ public:
     MenuNode n_phrLength, n_phrSwing, n_phrProb, n_phrOctave;
 
     // --- SYSTEM MENU DATA ---
-    MenuNode n_sysMidiCh, n_sysBright, n_sysClock;
+    MenuNode n_sysBootVol;
 
     void Init() {
         n_osc    = {"Oscillators", NodeType::FOLDER, 0, 0, 0, nullptr, &n_oscWave, &n_filter, nullptr};
@@ -66,11 +66,10 @@ public:
         n_phrOctave = {"Octave Rng", NodeType::PARAM_INT, 2,  1, 4, nullptr, nullptr, nullptr, &n_phrProb};
         rootPhrase = &n_phrLength;
 
-        n_sysMidiCh = {"MIDI Channel", NodeType::PARAM_INT, 1, 1, 16, nullptr, nullptr, &n_sysBright, nullptr};
-        n_sysBright = {"Brightness",   NodeType::PARAM_INT, 100, 10, 100, nullptr, nullptr, &n_sysClock, &n_sysMidiCh};
-        n_sysClock  = {"Clock Src",    NodeType::PARAM_INT, 0, 0, 1, nullptr, nullptr, nullptr, &n_sysBright}; 
-        rootSystem = &n_sysMidiCh;
-
+        // CLEANED: Only Boot Volume remains! (No linked list neighbors needed)
+        n_sysBootVol = {"Boot Volume", NodeType::PARAM_INT, 20,  0, 100, nullptr, nullptr, nullptr, nullptr};
+        rootSystem = &n_sysBootVol;
+        
         currentSelection = rootSynth;
         topVisibleNode = currentSelection;
     }

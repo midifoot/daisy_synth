@@ -2,6 +2,12 @@
 
 # TODO 
 
+- recheck why SD card is not working 
+- implement metronome function 
+- swing param from switch to % (later) 
+- add a blinking led on rythm if possible 
+
+
 everyday roadmap : 
 - after sd card test, write an optional diagnostics routine to check every component 
 (triggered by P1,P2,P3)

@@ -20,16 +20,26 @@ public:
         }
     }
 
-    void PlayNote(uint8_t midiNote, uint8_t velocity) {
+void PlayNote(uint8_t midiNote, uint8_t velocity) {
+        float safeAmp = (velocity / 127.0f) * (1.0f / MAX_VOICES);
+
+        // 1. Check if this exact note is ALREADY playing. (Re-trigger it!)
+        for(int i = 0; i < MAX_VOICES; i++) {
+            if(voiceActive[i] && voiceMidiNote[i] == midiNote) {
+                voices[i].SetAmp(safeAmp); 
+                return; // We re-triggered it, so we are done.
+            }
+        }
+
+        // 2. If it's a new note, find the first empty voice slot.
         for(int i = 0; i < MAX_VOICES; i++) {
             if(!voiceActive[i]) {
                 float freq = daisysp::mtof(midiNote);
                 voices[i].SetFreq(freq);
-                float safeAmp = (velocity / 127.0f) * (1.0f / MAX_VOICES);
                 voices[i].SetAmp(safeAmp); 
                 voiceMidiNote[i] = midiNote;
                 voiceActive[i] = true;
-                break;
+                return; // Note placed successfully.
             }
         }
     }
