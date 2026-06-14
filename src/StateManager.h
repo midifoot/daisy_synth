@@ -1,6 +1,7 @@
 #pragma once
 #include "HardwareManager.h"
 #include "MenuManager.h" 
+#include "MetronomeEngine.h"
 
 enum class AppMode { PLAY, PATCH_EDIT, PHRASE_EDIT, SYSTEM_EDIT };
 
@@ -11,6 +12,7 @@ public:
     bool isBootInitialized = false; 
     
     MenuManager menu; 
+    MetronomeEngine metro; 
 
     bool isPanic = false; 
 
@@ -18,11 +20,13 @@ public:
     uint32_t lastEnc2Time = 0;
     uint32_t lastEnc3Time = 0;
     
+    bool lastGB = false;
+    uint32_t lastGBTime = 0; 
+    
+    bool lastRB = false;
     uint32_t redBtnPressTime = 0;
     bool redBtnLongTriggered = false;
 
-    bool lastGB = false;
-    bool lastRB = false;
     char sysMsg[40] = "STATUS: SYSTEM READY";
     
     int synthPreview = 0;
@@ -48,27 +52,19 @@ public:
         menu.Init(); 
     }
 
-    // --- REVERTED: Simple, lightweight color assignment ---
     void UpdateLED(HardwareManager& hw) {
-        if (!isBootInitialized || currentMode == AppMode::PLAY) {
-            hw.rgb.Set(0, 0, 1.0f); // Blue
-        } else if (currentMode == AppMode::PATCH_EDIT) {
-            hw.rgb.Set(0, 1.0f, 0); // Green
-        } else if (currentMode == AppMode::PHRASE_EDIT) {
-            hw.rgb.Set(1.0f, 1.0f, 0); // Yellow
-        } else if (currentMode == AppMode::SYSTEM_EDIT) {
-            hw.rgb.Set(1.0f, 0, 0); // Red
-        }
+        if (!isBootInitialized || currentMode == AppMode::PLAY) hw.rgb.Set(0, 0, 1.0f); 
+        else if (currentMode == AppMode::PATCH_EDIT) hw.rgb.Set(0, 1.0f, 0); 
+        else if (currentMode == AppMode::PHRASE_EDIT) hw.rgb.Set(1.0f, 1.0f, 0); 
+        else if (currentMode == AppMode::SYSTEM_EDIT) hw.rgb.Set(1.0f, 0, 0); 
         hw.rgb.Update();
     }
 
     void SwitchMode(AppMode newMode, HardwareManager& hw) {
         currentMode = newMode;
-        
         if (newMode == AppMode::PATCH_EDIT) menu.SetActiveTree(1);
         else if (newMode == AppMode::PHRASE_EDIT) menu.SetActiveTree(2);
         else if (newMode == AppMode::SYSTEM_EDIT) menu.SetActiveTree(3);
-        
         needsDisplayUpdate = true;
         UpdateLED(hw); 
         hw.seed.DelayMs(300); 
@@ -76,12 +72,7 @@ public:
 
     void ProcessState(HardwareManager& hw) {
         uint32_t now = hw.seed.system.GetNow();
-
-        // One-time LED setup on boot completion
-        if (!isBootInitialized) {
-            UpdateLED(hw);
-            isBootInitialized = true;
-        }
+        if (!isBootInitialized) { UpdateLED(hw); isBootInitialized = true; }
 
         // ==========================================
         // 1. MENU MODE LOGIC
@@ -89,8 +80,16 @@ public:
         if (currentMode != AppMode::PLAY) {
             menu.ProcessInput(hw);
             
-            bool RBPressed = !hw.btnRed.Read();
+            metro.bpm = menu.n_bpm.value;
+            metro.volume = menu.n_vol.value;
+            metro.num = menu.n_num.value;
+            metro.den = menu.n_den.value;
+            metro.subdiv = menu.n_sub.value;
+            metro.ternary = (menu.n_ternary.value != 0);
+            metro.UpdateTiming();
 
+            // RESTORED: Short/Long Press Menu Navigation
+            bool RBPressed = !hw.btnRed.Read();
             if (RBPressed && !lastRB) {
                 redBtnPressTime = now;
                 redBtnLongTriggered = false;
@@ -107,13 +106,11 @@ public:
                         menu.currentSelection = menu.currentSelection->parent;
                         menu.topVisibleNode = menu.currentSelection;
                         menu.needsDisplayUpdate = true;
-                    } 
-                    else {
-                        SwitchMode(AppMode::PLAY, hw); 
+                    } else {
+                        SwitchMode(AppMode::PLAY, hw);
                     }
                 }
             }
-
             lastRB = RBPressed; 
             return; 
         }
@@ -129,6 +126,16 @@ public:
         else if (!p1 && p2 && p3) { SwitchMode(AppMode::PHRASE_EDIT, hw); return; } 
         else if (p1 && !p2 && p3) { SwitchMode(AppMode::SYSTEM_EDIT, hw); return; }
 
+        // --- GREEN BUTTON: METRONOME TOGGLE ---
+        bool GBPressed = !hw.btnGreen.Read();
+        if (GBPressed && !lastGB && (now - lastGBTime > 200)) {
+            metro.running = !metro.running;
+            sprintf(sysMsg, metro.running ? "METRO: ON" : "METRO: OFF");
+            needsDisplayUpdate = true;
+            lastGBTime = now;
+        }
+        lastGB = GBPressed;
+
         // --- RED BUTTON: AUDIO SHUTTER (PANIC) ---
         bool RBPressed = !hw.btnRed.Read();
         if (RBPressed && !lastRB) {
@@ -136,86 +143,60 @@ public:
             sprintf(sysMsg, "PANIC ACTIVE: MUTED");
             needsDisplayUpdate = true;
         }
+        lastRB = RBPressed;
 
-        // --- ENCODER 1 ---
+        // --- ENCODER 1 (RESTORED ACCELERATION) ---
         int inc1 = hw.enc1.Increment();
         if (inc1 != 0) {
-            uint32_t currentTime = hw.seed.system.GetNow();
-            uint32_t timeDelta = currentTime - lastEnc1Time;
-            lastEnc1Time = currentTime;
-            if (timeDelta > 2000) timeDelta = 2000; 
-
+            uint32_t timeDelta = now - lastEnc1Time;
+            lastEnc1Time = now;
             int step = inc1; 
+            if (timeDelta < 150) step = inc1 * 10; 
+
             synthPreview += step;
             while (synthPreview > 9) synthPreview -= 10;
             while (synthPreview < 0) synthPreview += 10;
             needsDisplayUpdate = true;
         }
-        if (hw.enc1.RisingEdge() && !p2 && !p3) { 
-            synthLoaded = synthPreview; 
-            sprintf(sysMsg, "SYNTH LOADED");
-            needsDisplayUpdate = true;
-        }
+        if (hw.enc1.RisingEdge() && !p2 && !p3) { synthLoaded = synthPreview; sprintf(sysMsg, "SYNTH LOADED"); needsDisplayUpdate = true; }
 
-        // --- ENCODER 2 ---
+        // --- ENCODER 2 (RESTORED ACCELERATION) ---
         int inc2 = hw.enc2.Increment();
         if (inc2 != 0) {
-            uint32_t currentTime = hw.seed.system.GetNow();
-            uint32_t timeDelta = currentTime - lastEnc2Time;
-            lastEnc2Time = currentTime;
-            if (timeDelta > 2000) timeDelta = 2000; 
-
+            uint32_t timeDelta = now - lastEnc2Time;
+            lastEnc2Time = now;
             int step = inc2; 
+            if (timeDelta < 150) step = inc2 * 10; 
+
             phrasePreview += step;
             while (phrasePreview > 9) phrasePreview -= 10;
             while (phrasePreview < 0) phrasePreview += 10;
             needsDisplayUpdate = true;
         }
-        if (hw.enc2.RisingEdge() && !p1 && !p3) { 
-            phraseLoaded = phrasePreview; 
-            sprintf(sysMsg, "PHRASE LOADED");
-            needsDisplayUpdate = true;
-        }
+        if (hw.enc2.RisingEdge() && !p1 && !p3) { phraseLoaded = phrasePreview; sprintf(sysMsg, "PHRASE LOADED"); needsDisplayUpdate = true; }
 
-        // --- ENCODER 3: VOL/MIX ---
+        // --- ENCODER 3: VOL/MIX (RESTORED ACCELERATION) ---
         int inc3 = hw.enc3.Increment();
+        if (isPanic && (inc3 != 0 || hw.enc3.RisingEdge())) { isPanic = false; sprintf(sysMsg, "STATUS: SYSTEM READY"); needsDisplayUpdate = true; }
         
-        if (isPanic && (inc3 != 0 || hw.enc3.RisingEdge())) {
-            isPanic = false;
-            sprintf(sysMsg, "STATUS: SYSTEM READY");
-            needsDisplayUpdate = true;
-        }
-
         if (inc3 != 0) {
-            uint32_t currentTime = hw.seed.system.GetNow();
-            uint32_t timeDelta = currentTime - lastEnc3Time;
-            lastEnc3Time = currentTime;
-            if (timeDelta > 2000) timeDelta = 2000; 
-
+            uint32_t timeDelta = now - lastEnc3Time;
+            lastEnc3Time = now;
             int step = inc3; 
             if (timeDelta < 150) step = inc3 * 10; 
 
-            if (isVolSelected) {
-                mainVolume += step;
-                if (mainVolume > 100) mainVolume = 100;
-                if (mainVolume < 0) mainVolume = 0;
-            } else {
-                fxMix += step;
-                if (fxMix > 100) fxMix = 100;
-                if (fxMix < 0) fxMix = 0;
+            if (isVolSelected) { 
+                mainVolume += step; 
+                if (mainVolume > 100) mainVolume = 100; 
+                if (mainVolume < 0) mainVolume = 0; 
+            }
+            else { 
+                fxMix += step; 
+                if (fxMix > 100) fxMix = 100; 
+                if (fxMix < 0) fxMix = 0; 
             }
             needsDisplayUpdate = true;
         }
-        if (hw.enc3.RisingEdge() && !p1 && !p2) { 
-            isVolSelected = !isVolSelected; 
-            needsDisplayUpdate = true;
-        }
-
-        bool GBPressed = !hw.btnGreen.Read();
-        if (GBPressed != lastGB || RBPressed != lastRB) {
-            needsDisplayUpdate = true;
-            lastGB = GBPressed;
-            lastRB = RBPressed;
-        }
+        if (hw.enc3.RisingEdge() && !p1 && !p2) { isVolSelected = !isVolSelected; needsDisplayUpdate = true; }
     }
 };
