@@ -38,7 +38,7 @@ public:
     
     // System Nodes
     MenuNode n_metroFolder, n_sysBootVol;
-    MenuNode n_bpm, n_vol, n_num, n_den, n_sub, n_ternary;
+    MenuNode n_bpm, n_vol, n_beats, n_sub, n_ternary; 
 
     void Init() {
         // --- SYNTH ---
@@ -68,10 +68,9 @@ public:
         
         // Metronome children
         n_bpm     = {"BPM",       NodeType::PARAM_INT, 120, 30, 300, &n_metroFolder, nullptr, &n_vol, nullptr};
-        n_vol     = {"Vol",       NodeType::PARAM_INT, 50, 0, 100, &n_metroFolder, nullptr, &n_num, &n_bpm};
-        n_num     = {"Sig Num",   NodeType::PARAM_INT, 4, 1, 17,  &n_metroFolder, nullptr, &n_den, &n_vol};
-        n_den     = {"Sig Den",   NodeType::PARAM_INT, 4, 2, 16,  &n_metroFolder, nullptr, &n_sub, &n_num};
-        n_sub     = {"Subdiv",    NodeType::PARAM_INT, 1, 1, 4,   &n_metroFolder, nullptr, &n_ternary, &n_den};
+        n_vol     = {"Vol",       NodeType::PARAM_INT, 50, 0, 100, &n_metroFolder, nullptr, &n_beats, &n_bpm};
+        n_beats   = {"Beats",     NodeType::PARAM_INT, 4, 1, 16,  &n_metroFolder, nullptr, &n_sub, &n_vol};
+        n_sub     = {"Subdiv",    NodeType::PARAM_INT, 1, 1, 4,   &n_metroFolder, nullptr, &n_ternary, &n_beats};
         n_ternary = {"Ternary",   NodeType::PARAM_INT, 0, 0, 1,   &n_metroFolder, nullptr, nullptr, &n_sub};
         
         rootSystem = &n_metroFolder;

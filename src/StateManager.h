@@ -82,8 +82,7 @@ public:
             
             metro.bpm = menu.n_bpm.value;
             metro.volume = menu.n_vol.value;
-            metro.num = menu.n_num.value;
-            metro.den = menu.n_den.value;
+            metro.beats = menu.n_beats.value; // Updated mapping
             metro.subdiv = menu.n_sub.value;
             metro.ternary = (menu.n_ternary.value != 0);
             metro.UpdateTiming();

@@ -2,28 +2,13 @@
 
 # TODO 
 
-- recheck why SD card is not working 
-- implement metronome function 
-- swing param from switch to % (later) 
-- add a blinking led on rythm if possible 
-
+- check why SD card is not working 
 
 everyday roadmap : 
-- after sd card test, write an optional diagnostics routine to check every component 
-(triggered by P1,P2,P3)
-- led : alternate colors and blink 
-- encoders rotation and press
-- buttons press 
-- OLED test
-- sd card read/write 
-- end up with booting to play mode 
+- make a consistant check routine inside system/settings (really useful ? ) 
 
-- include the "on/off" soundchekc at boot time 
-
-- change this file according to hardware changes (display TFT to OLED ... )
-- all hardware individually and all-together tested, switching to phase 2 : skeleton 
 - make the models list and detail the MasterMixerModel as a meta model, combining 2 to 4 other models based on the weight of each one ... make a score (+5,+3,+2 for each model to know what resource consuming to expect)
-
+(ok incorporated in the MASTER_CODEX but not yet implemented)
 
 ### MAIN ROADMAP FOR NEXT WEEK : 
 
@@ -31,21 +16,17 @@ The Master Roadmap Confirmation
 Here is how we will execute your plan when you get back:
 
 1. The Final Hardware Boss (MIDI Input)
-
 You will wire the voltage divider from the Teensy 2.0 TX split directly into the Daisy D14.
-
 We will add the code to read those incoming MIDI bytes and trigger that simple sine wave we built. This proves the hardware is 100% finished.
+(DONE)
 
 2. The System & Storage Backbone
-
 We will build out the System Menu so it actually does things (e.g., changing screen brightness, selecting the MIDI channel).
-
 We will finalize the StorageManager so it can actually save and load the StateManager variables to the SD card.
+(PARTIAL as SD CARD still unreliable)
 
 3. The Phrase Engine (Sequencer)
-
 We will build the logic that reads your arrays of notes (the phrases) and plays them back in time with the MIDI clock or internal BPM.
-
 We will ensure the UI smoothly switches between the phrases.
 
 4. The DSP Playground (The Fun Part)
@@ -66,21 +47,29 @@ project involving electroSmith Daisy Seed Board as a fully implemented Synth for
 
 first step : 
 - make specs for the synth engine & periphs (display & Sd card + 3+3 encoders / buttons)  
+(done, see relevant doc)
 - make a test run for daisy workflow (ard IDE then full C++) 
+(done)
 - make test for separate periphs 
+(done , except for sd card )
 - test MFKB midi serial receive (keep USB/DIN5 outs)
+(done)
 
 second step :
 - build main synth environment / UI  
+(done)
 - test first synth engines 
+(done in boot sound (no envelopes))
 
 third step : 
 - implement full synth engines 
 - create patches for every synth engine (env 20 each) 
 
 fourth :
-- test and run 
+- test and debug , add the companion app for file management, advertize & sell 
 
+
+----- OTHER infos / notes to remind 
 
 ## config and start project : 
 1. setting up the workflow 
@@ -89,7 +78,10 @@ fourth :
 - configured "continue" extension with gemini Flash 3 API + MCP server 
 - created basic file arbo (Makefile , /src , /tests)
 - created basic hardware.h and main.cpp to test the workflow and compilation (OK) 
+- displace to "tests" dir and make the single componenet tests (change the makefile ... )
+(done)
 
+--- infos on OLED font sizes 
 
 sizing on the display : 
 oled are 128 x 64 pixels (0-127 / 0-63)

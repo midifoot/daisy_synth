@@ -96,6 +96,19 @@ int main(void) {
 
         state.ProcessState(hw);
         ui.Draw(hw, state); 
+
+        // --- METRONOME LED VISUALIZER ---
+        if (state.metro.running && state.metro.isTickActive) {
+            if (state.metro.currentSub == 0) {
+                hw.rgb.Set(1.0f, 0.0f, 0.0f); // RED for main beats
+            } else {
+                hw.rgb.Set(0.0f, 0.0f, 1.0f); // BLUE for subdivisions
+            }
+            hw.rgb.Update();
+        } else {
+            state.UpdateLED(hw); // Restores default mode color when tick ends
+        }
+        
         hw.seed.DelayMs(1);
     }
 }

@@ -7,10 +7,11 @@ public:
     volatile bool running = false;
     volatile float bpm = 120.0f;
     volatile int volume = 50;
-    volatile int num = 4;
-    volatile int den = 4;
+    volatile int beats = 4;        // Renamed from num
     volatile int subdiv = 1;
     volatile bool ternary = false;
+    
+    volatile bool isTickActive = false; // Flag for the LED visualizer
 
     daisysp::Oscillator clickOsc;
     uint32_t sampleCounter = 0;
@@ -29,6 +30,7 @@ public:
     void Process(float* out_left, float* out_right, float samplerate) {
         if (!running) {
             clickOsc.SetAmp(0.0f);
+            isTickActive = false;
             return;
         }
 
@@ -42,6 +44,7 @@ public:
         // Turn tick off after 50ms
         if (sampleCounter == tickDuration) {
             clickOsc.SetAmp(0.0f);
+            isTickActive = false; // Tell main thread to turn off LED
         }
 
         if (sampleCounter >= samplesPerTick) {
@@ -51,10 +54,9 @@ public:
             bool shouldTrigger = !(ternary && subdiv == 2 && currentSub == 1);
             
             if (shouldTrigger) {
-                // FIXED: It now correctly detects beat 0 and sub 0
                 clickOsc.SetFreq((currentBeat == 0 && currentSub == 0) ? 1200.0f : 880.0f);
-                // FIXED: Volume is now 2x louder 
                 clickOsc.SetAmp(volume / 100.0f); 
+                isTickActive = true; // Tell main thread to flash LED
             }
 
             // Move the increments AFTER the trigger check!
@@ -62,7 +64,7 @@ public:
             if (currentSub >= effectiveDivs) {
                 currentSub = 0;
                 currentBeat++;
-                if (currentBeat >= num) currentBeat = 0;
+                if (currentBeat >= beats) currentBeat = 0; // Updated to use 'beats'
             }
         }
         
