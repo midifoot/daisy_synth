@@ -2,13 +2,13 @@
 
 # TODO 
 
-- check why SD card is not working 
+- SD card operative (see in the long term and check resistors between 3.3v & D1,D2,D3 lanes )
 
 everyday roadmap : 
 - make a consistant check routine inside system/settings (really useful ? ) 
 
 - make the models list and detail the MasterMixerModel as a meta model, combining 2 to 4 other models based on the weight of each one ... make a score (+5,+3,+2 for each model to know what resource consuming to expect)
-(ok incorporated in the MASTER_CODEX but not yet implemented)
+(doc done, incorporated in the MASTER_CODEX but not yet implemented)
 
 ### MAIN ROADMAP FOR NEXT WEEK : 
 
@@ -23,7 +23,7 @@ We will add the code to read those incoming MIDI bytes and trigger that simple s
 2. The System & Storage Backbone
 We will build out the System Menu so it actually does things (e.g., changing screen brightness, selecting the MIDI channel).
 We will finalize the StorageManager so it can actually save and load the StateManager variables to the SD card.
-(PARTIAL as SD CARD still unreliable)
+(PARTIAL as SD CARD not fully reliable)
 
 3. The Phrase Engine (Sequencer)
 We will build the logic that reads your arrays of notes (the phrases) and plays them back in time with the MIDI clock or internal BPM.
@@ -62,6 +62,7 @@ second step :
 (done in boot sound (no envelopes))
 
 third step : 
+- implement phrase engine 
 - implement full synth engines 
 - create patches for every synth engine (env 20 each) 
 
